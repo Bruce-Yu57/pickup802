@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>802班 幸運抽籤</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* 自訂樣式和動畫 */
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden; /* 隱藏彩帶超出畫面的部分 */
+        }
+
+        .student-card {
+            transition: all 0.2s ease-in-out;
+            will-change: transform, box-shadow; /* 效能優化 */
+            font-size: 1.25rem; /* 調整字體大小以適應更多學生 */
+        }
+
+        /* 鎂光燈效果 */
+        .spotlight {
+            transform: scale(1.1);
+            box-shadow: 0 0 35px 15px rgba(255, 255, 150, 0.9);
+            background-color: #fffde7; /* 淺黃色背景 */
+            border-color: #fceb38;
+            color: #4a4a4a;
+        }
+
+        /* 得獎者動畫 */
+        .winner {
+            color: #1a202c;
+            animation: winner-animation 1.5s ease-in-out infinite;
+        }
+
+        @keyframes winner-animation {
+            0%, 100% {
+                transform: scale(1.15) rotate(-2deg);
+                box-shadow: 0 0 40px 15px rgba(255, 215, 0, 0.9);
+            }
+            50% {
+                transform: scale(1.20) rotate(2deg);
+                box-shadow: 0 0 55px 25px rgba(255, 215, 0, 1);
+            }
+        }
+        
+        /* 彩帶樣式 */
+        .confetti {
+            position: absolute;
+            width: 12px;
+            height: 22px;
+            opacity: 0;
+            animation: confetti-fall 4s ease-out forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                opacity: 1;
+                transform: translateY(-10vh) rotateZ(0deg) rotateY(0deg);
+            }
+            100% {
+                opacity: 0.5;
+                transform: translateY(110vh) rotateZ(1080deg) rotateY(720deg);
+            }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 text-center">
+        <!-- 標題 -->
+        <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-2 tracking-wider" style="text-shadow: 2px 2px 8px rgba(0,0,0,0.4);">
+            802班 幸運大抽獎
+        </h1>
+        <p id="subtitle" class="text-lg text-yellow-200 mb-8">誰會是今天的幸運兒呢？</p>
+
+        <!-- 學生名單容器 -->
+        <div id="students-container" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-w-6xl mx-auto mb-8">
+            <!-- 學生卡片將由 JavaScript 動態生成 -->
+        </div>
+
+        <!-- 控制按鈕 -->
+        <div class="flex justify-center space-x-4">
+            <button id="start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-bold py-3 px-8 text-xl rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200">
+                開始抽籤！
+            </button>
+            <button id="reset-btn" class="hidden bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-8 text-xl rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200">
+                重新再來
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 802班學生名單
+        const students = [
+            '王辰美', '林沂亞', '林譽潔', '林鈺庭', '張譽晰', '許洺瑄', '陳妍伶',
+            '黃佳芹', '童星綺', '謝欣庭', '羅巧芯', '鄭羽曦', '余佳蓉', '王俊博',
+            '何璿杞', '呂淳維', '呂紹瑋', '李曜宇', '邵靖傑', '游昊軒', '楊邵仲',
+            '劉宥毅', '蔡侑宏', '謝岳龍', '戴承曜', '李易霖', '林駿宥'
+        ];
+        
+        // 取得 DOM 元素
+        const studentsContainer = document.getElementById('students-container');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const subtitle = document.getElementById('subtitle');
+
+        let isDrawing = false; // 追蹤是否正在抽籤
+
+        // Fisher-Yates (aka Knuth) 洗牌演算法，用於打亂陣列順序
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // 渲染學生卡片到畫面上
+        function renderStudents() {
+            studentsContainer.innerHTML = ''; // 清空容器
+            const shuffledStudents = shuffleArray([...students]); // 複製並打亂學生名單
+            
+            shuffledStudents.forEach(name => {
+                const card = document.createElement('div');
+                card.className = 'student-card bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-3 text-center font-semibold shadow-md border-2 border-transparent cursor-default flex items-center justify-center';
+                card.style.minHeight = '70px'; // 確保卡片有基本高度
+                card.textContent = name;
+                studentsContainer.appendChild(card);
+            });
+        }
+
+        // 建立慶祝彩帶
+        function createConfetti() {
+            const confettiContainer = document.body;
+            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'];
+            for (let i = 0; i < 150; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = `${Math.random() * 100}vw`;
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = `${Math.random() * 1}s`;
+                if (Math.random() > 0.5) {
+                    confetti.style.borderRadius = '50%';
+                    confetti.style.width = '8px';
+                    confetti.style.height = '8px';
+                }
+                confettiContainer.appendChild(confetti);
+                
+                // 動畫結束後移除彩帶，避免 DOM 元素過多
+                setTimeout(() => {
+                    confetti.remove();
+                }, 4000);
+            }
+        }
+
+        // 宣布得獎者
+        function announceWinner(winnerCard) {
+            document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
+            winnerCard.classList.add('winner');
+            subtitle.textContent = `恭喜 ${winnerCard.textContent} 同學！`;
+            subtitle.classList.add('font-bold', 'text-2xl');
+            
+            createConfetti();
+            
+            isDrawing = false;
+            resetBtn.classList.remove('hidden');
+            startBtn.classList.add('hidden');
+        }
+
+        // 開始抽籤的函數
+        function startDraw() {
+            if (isDrawing) return;
+            isDrawing = true;
+
+            subtitle.textContent = '緊張的時刻來了...';
+            subtitle.classList.remove('font-bold', 'text-2xl');
+            startBtn.disabled = true;
+            startBtn.textContent = '開獎中...';
+            const oldWinner = document.querySelector('.winner');
+            if (oldWinner) oldWinner.classList.remove('winner');
+            
+            const studentCards = Array.from(document.querySelectorAll('.student-card'));
+            let spotlightIndex = -1;
+            let interval = 80;
+            let totalDuration = 5000; // 因人數較多，稍微拉長時間
+
+            function moveSpotlight() {
+                if (spotlightIndex !== -1) {
+                    studentCards[spotlightIndex].classList.remove('spotlight');
+                }
+                let newIndex;
+                do {
+                    newIndex = Math.floor(Math.random() * studentCards.length);
+                } while (newIndex === spotlightIndex);
+                
+                spotlightIndex = newIndex;
+                studentCards[spotlightIndex].classList.add('spotlight');
+
+                totalDuration -= interval;
+                interval *= 1.07;
+
+                if (totalDuration > 0) {
+                    setTimeout(moveSpotlight, interval);
+                } else {
+                    announceWinner(studentCards[spotlightIndex]);
+                }
+            }
+            moveSpotlight();
+        }
+
+        // 重新設定抽籤
+        function resetDraw() {
+            renderStudents();
+            subtitle.textContent = '誰會是今天的幸運兒呢？';
+            subtitle.classList.remove('font-bold', 'text-2xl');
+            resetBtn.classList.add('hidden');
+            startBtn.classList.remove('hidden');
+            startBtn.disabled = false;
+            startBtn.textContent = '開始抽籤！';
+        }
+
+        startBtn.addEventListener('click', startDraw);
+        resetBtn.addEventListener('click', resetDraw);
+        window.addEventListener('DOMContentLoaded', renderStudents);
+    </script>
+</body>
+</html>
