@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>802班 幸運抽籤</title>
+    <title>802班 幸運抽籤 (AI版)</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Google Fonts -->
@@ -16,20 +16,20 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden; /* 隱藏彩帶超出畫面的部分 */
+            overflow-x: hidden;
         }
 
         .student-card {
             transition: all 0.2s ease-in-out;
-            will-change: transform, box-shadow; /* 效能優化 */
-            font-size: 1.25rem; /* 調整字體大小以適應更多學生 */
+            will-change: transform, box-shadow;
+            font-size: 1.25rem;
         }
 
         /* 鎂光燈效果 */
         .spotlight {
             transform: scale(1.1);
             box-shadow: 0 0 35px 15px rgba(255, 255, 150, 0.9);
-            background-color: #fffde7; /* 淺黃色背景 */
+            background-color: #fffde7;
             border-color: #fceb38;
             color: #4a4a4a;
         }
@@ -70,6 +70,27 @@
                 transform: translateY(110vh) rotateZ(1080deg) rotateY(720deg);
             }
         }
+
+        /* AI 訊息區塊動畫 */
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Markdown 樣式簡單處理 */
+        .ai-content strong {
+            color: #d97706; /* amber-600 */
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen text-gray-800">
@@ -79,7 +100,21 @@
         <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-2 tracking-wider" style="text-shadow: 2px 2px 8px rgba(0,0,0,0.4);">
             802班 幸運大抽獎
         </h1>
-        <p id="subtitle" class="text-lg text-yellow-200 mb-8">誰會是今天的幸運兒呢？</p>
+        <p id="subtitle" class="text-lg text-yellow-200 mb-6">誰會是今天的幸運兒呢？</p>
+
+        <!-- AI 訊息顯示區 (初始隱藏) -->
+        <div id="ai-result-area" class="hidden max-w-2xl mx-auto mb-6 bg-white bg-opacity-95 rounded-xl p-6 shadow-2xl border-4 border-yellow-300 transform transition-all">
+            <h3 class="text-xl font-bold text-purple-600 mb-2 flex items-center justify-center">
+                <span class="text-2xl mr-2">✨</span> AI 幸運大師開示 <span class="text-2xl ml-2">✨</span>
+            </h3>
+            <div id="ai-loading" class="hidden">
+                <div class="flex justify-center items-center space-x-2">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                    <span class="text-gray-500">正在生成專屬祝賀詞...</span>
+                </div>
+            </div>
+            <div id="ai-content" class="text-lg text-gray-800 leading-relaxed ai-content"></div>
+        </div>
 
         <!-- 學生名單容器 -->
         <div id="students-container" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-w-6xl mx-auto mb-8">
@@ -87,10 +122,16 @@
         </div>
 
         <!-- 控制按鈕 -->
-        <div class="flex justify-center space-x-4">
+        <div class="flex flex-wrap justify-center gap-4">
             <button id="start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-800 font-bold py-3 px-8 text-xl rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200">
                 開始抽籤！
             </button>
+            
+            <!-- AI 按鈕 (中獎後顯示) -->
+            <button id="ai-btn" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 text-xl rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200 border-2 border-yellow-300">
+                ✨ AI 頒獎
+            </button>
+
             <button id="reset-btn" class="hidden bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-8 text-xl rounded-full shadow-lg transform hover:scale-105 transition-transform duration-200">
                 重新再來
             </button>
@@ -98,23 +139,31 @@
     </div>
 
     <script>
-        // 802班學生名單
+        // 802班學生名單 (已修正錯別字)
         const students = [
-            '王辰美', '林沂亞', '林譽潔', '林鈺庭', '張譽晰', '許洺瑄', '陳妍伶',
-            '黃佳芹', '童星綺', '謝欣庭', '羅巧芯', '鄭羽曦', '余佳蓉', '王俊博',
+            '王辰美', '林沂亞', '林雲柔', '林鈺庭', '張雲晰', '許洛瑜', '陳妍伶',
+            '黃佳卉', '葉星締', '謝欣庭', '羅巧芯', '鄭羽曦', '余佳蓉', '王俊博',
             '何璿杞', '呂淳維', '呂紹瑋', '李曜宇', '邵靖傑', '游昊軒', '楊邵仲',
-            '劉宥毅', '蔡侑宏', '謝岳龍', '戴承曜', '李易霖', '林駿宥'
+            '劉春毅', '蔡侑安', '謝岳龍', '戴承曜', '李昱霆', '林駿宥'
         ];
         
         // 取得 DOM 元素
         const studentsContainer = document.getElementById('students-container');
         const startBtn = document.getElementById('start-btn');
         const resetBtn = document.getElementById('reset-btn');
+        const aiBtn = document.getElementById('ai-btn');
         const subtitle = document.getElementById('subtitle');
+        const aiResultArea = document.getElementById('ai-result-area');
+        const aiContent = document.getElementById('ai-content');
+        const aiLoading = document.getElementById('ai-loading');
 
         let isDrawing = false; // 追蹤是否正在抽籤
+        let currentWinnerName = "";
 
-        // Fisher-Yates (aka Knuth) 洗牌演算法，用於打亂陣列順序
+        // API Key 設定 (系統將自動填入)
+        const apiKey = ""; 
+
+        // Fisher-Yates 洗牌演算法
         function shuffleArray(array) {
             let currentIndex = array.length, randomIndex;
             while (currentIndex !== 0) {
@@ -125,21 +174,21 @@
             return array;
         }
 
-        // 渲染學生卡片到畫面上
+        // 渲染學生卡片
         function renderStudents() {
-            studentsContainer.innerHTML = ''; // 清空容器
-            const shuffledStudents = shuffleArray([...students]); // 複製並打亂學生名單
+            studentsContainer.innerHTML = ''; 
+            const shuffledStudents = shuffleArray([...students]);
             
             shuffledStudents.forEach(name => {
                 const card = document.createElement('div');
                 card.className = 'student-card bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-3 text-center font-semibold shadow-md border-2 border-transparent cursor-default flex items-center justify-center';
-                card.style.minHeight = '70px'; // 確保卡片有基本高度
+                card.style.minHeight = '70px';
                 card.textContent = name;
                 studentsContainer.appendChild(card);
             });
         }
 
-        // 建立慶祝彩帶
+        // 建立彩帶
         function createConfetti() {
             const confettiContainer = document.body;
             const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800'];
@@ -156,7 +205,6 @@
                 }
                 confettiContainer.appendChild(confetti);
                 
-                // 動畫結束後移除彩帶，避免 DOM 元素過多
                 setTimeout(() => {
                     confetti.remove();
                 }, 4000);
@@ -167,32 +215,40 @@
         function announceWinner(winnerCard) {
             document.querySelectorAll('.spotlight').forEach(el => el.classList.remove('spotlight'));
             winnerCard.classList.add('winner');
-            subtitle.textContent = `恭喜 ${winnerCard.textContent} 同學！`;
+            currentWinnerName = winnerCard.textContent;
+
+            subtitle.textContent = `恭喜 ${currentWinnerName} 同學！`;
             subtitle.classList.add('font-bold', 'text-2xl');
             
             createConfetti();
             
             isDrawing = false;
             resetBtn.classList.remove('hidden');
+            aiBtn.classList.remove('hidden'); // 顯示 AI 按鈕
             startBtn.classList.add('hidden');
         }
 
-        // 開始抽籤的函數
+        // 開始抽籤
         function startDraw() {
             if (isDrawing) return;
             isDrawing = true;
 
+            // 重置介面
             subtitle.textContent = '緊張的時刻來了...';
             subtitle.classList.remove('font-bold', 'text-2xl');
             startBtn.disabled = true;
             startBtn.textContent = '開獎中...';
+            aiResultArea.classList.add('hidden'); // 隱藏上次的 AI 結果
+            aiBtn.classList.add('hidden');
+            resetBtn.classList.add('hidden');
+            
             const oldWinner = document.querySelector('.winner');
             if (oldWinner) oldWinner.classList.remove('winner');
             
             const studentCards = Array.from(document.querySelectorAll('.student-card'));
             let spotlightIndex = -1;
             let interval = 80;
-            let totalDuration = 5000; // 因人數較多，稍微拉長時間
+            let totalDuration = 5000;
 
             function moveSpotlight() {
                 if (spotlightIndex !== -1) {
@@ -218,19 +274,93 @@
             moveSpotlight();
         }
 
-        // 重新設定抽籤
+        // 重置
         function resetDraw() {
             renderStudents();
             subtitle.textContent = '誰會是今天的幸運兒呢？';
             subtitle.classList.remove('font-bold', 'text-2xl');
             resetBtn.classList.add('hidden');
+            aiBtn.classList.add('hidden');
+            aiResultArea.classList.add('hidden');
             startBtn.classList.remove('hidden');
             startBtn.disabled = false;
             startBtn.textContent = '開始抽籤！';
         }
 
+        // 呼叫 Gemini API
+        async function generateAIBlessing() {
+            if (!apiKey) {
+                alert("API 金鑰尚未設定，無法使用 AI 功能。");
+                return;
+            }
+
+            aiBtn.disabled = true;
+            aiBtn.textContent = "✨ 思考中...";
+            aiResultArea.classList.remove('hidden');
+            aiResultArea.classList.add('fade-in-up');
+            aiLoading.classList.remove('hidden');
+            aiContent.innerHTML = '';
+
+            const prompt = `
+                請扮演一位幽默風趣的班級活動主持人。
+                現在 802 班的 ${currentWinnerName} 同學在抽籤活動中被選中了。
+                請生成一段簡短的繁體中文回應（約 50-80 字）：
+                1. 恭喜 ${currentWinnerName}。
+                2. 給予一個隨機、好笑、無厘頭的「虛擬獎勵」（例如：免交作業一次、優先選便當、或是空氣吉他表演權等）。
+                3. 用詞要活潑，適合國中生，可以用一些 emoji。
+                請直接給出內容，不要有標題。
+            `;
+
+            try {
+                const response = await callGeminiAPI(prompt);
+                // 簡單格式化：將 **文字** 轉為 <strong>
+                const formattedText = response.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                aiContent.innerHTML = formattedText;
+            } catch (error) {
+                aiContent.textContent = "哎呀，AI 機器人剛剛去吃點心了，請稍後再試！(錯誤代碼: 500)";
+                console.error(error);
+            } finally {
+                aiLoading.classList.add('hidden');
+                aiBtn.disabled = false;
+                aiBtn.textContent = "✨ 再次 AI 祝福";
+            }
+        }
+
+        // Gemini API 呼叫邏輯 (包含 Retry 機制)
+        async function callGeminiAPI(userPrompt) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }]
+            };
+
+            const maxRetries = 5;
+            const delays = [1000, 2000, 4000, 8000, 16000];
+
+            for (let i = 0; i <= maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                         throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "AI 似乎無話可說...";
+                } catch (error) {
+                    if (i === maxRetries) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        }
+
+        // 事件監聽
         startBtn.addEventListener('click', startDraw);
         resetBtn.addEventListener('click', resetDraw);
+        aiBtn.addEventListener('click', generateAIBlessing);
         window.addEventListener('DOMContentLoaded', renderStudents);
     </script>
 </body>
